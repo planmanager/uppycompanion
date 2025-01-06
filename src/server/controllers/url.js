@@ -1,0 +1,71 @@
+const express = require('express')
+
+const { startDownUpload } = require('../helpers/upload')
+const { downloadURL } = require('../download')
+const { validateURL } = require('../helpers/request')
+const { getURLMeta } = require('../helpers/request')
+const logger = require('../logger')
+
+/**
+ * @callback downloadCallback
+ * @param {Error} err
+ * @param {string | Buffer | Buffer[]} chunk
+ */
+
+/**
+ * Fetches the size and content type of a URL
+ *
+ * @param {object} req expressJS request object
+ * @param {object} res expressJS response object
+ */
+const meta = async (req, res) => {
+  try {
+    logger.debug('URL file import handler running', null, req.id)
+    const { allowLocalUrls } = req.companion.options
+    if (!validateURL(req.body.url, allowLocalUrls)) {
+      logger.debug('Invalid request body detected. Exiting url meta handler.', null, req.id)
+      return res.status(400).json({ error: 'Invalid request body' })
+    }
+
+    const urlMeta = await getURLMeta(req.body.url, allowLocalUrls)
+    return res.json(urlMeta)
+  } catch (err) {
+    logger.error(err, 'controller.url.meta.error', req.id)
+    return res.status(err.status || 500).json({ message: 'failed to fetch URL metadata' })
+  }
+}
+
+/**
+ * Handles the reques of import a file from a remote URL, and then
+ * subsequently uploading it to the specified destination.
+ *
+ * @param {object} req expressJS request object
+ * @param {object} res expressJS response object
+ */
+const get = async (req, res) => {
+  logger.debug('URL file import handler running', null, req.id)
+  const { allowLocalUrls } = req.companion.options
+  if (!validateURL(req.body.url, allowLocalUrls)) {
+    logger.debug('Invalid request body detected. Exiting url import handler.', null, req.id)
+    res.status(400).json({ error: 'Invalid request body' })
+    return
+  }
+
+  async function getSize () {
+    const { size } = await getURLMeta(req.body.url, allowLocalUrls)
+    return size
+  }
+
+  const download = () => downloadURL(req.body.url, allowLocalUrls, req.id)
+
+  try {
+    await startDownUpload({ req, res, getSize, download })
+  } catch (err) {
+    logger.error(err, 'controller.url.error', req.id)
+    res.status(err.status || 500).json({ message: 'failed to fetch URL' })
+  }
+}
+
+module.exports = () => express.Router()
+  .post('/meta', express.json(), meta)
+  .post('/get', express.json(), get)
