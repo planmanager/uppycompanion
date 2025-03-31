@@ -1,5 +1,20 @@
 # @uppy/companion
 
+## 5.5.2
+
+Released: 2025-02-25
+Included in: Uppy v4.13.3
+
+- @uppy/companion: log when tus uploaded size differs (Mikael Finstad / #5647)
+- @uppy/companion: remove redundant HEAD request for file size  (Mikael Finstad / #5648)
+
+## 5.5.1
+
+Released: 2025-01-22
+Included in: Uppy v4.13.1
+
+- @uppy/companion: unify http error responses (Mikael Finstad / #5595)
+
 ## 5.5.0
 
 Released: 2025-01-15
