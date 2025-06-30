@@ -4,14 +4,13 @@
 const dropbox = require('./dropbox')
 const box = require('./box')
 const { Drive } = require('./google/drive')
-const googlephotos = require('./google/googlephotos')
 const instagram = require('./instagram/graph')
 const facebook = require('./facebook')
 const onedrive = require('./onedrive')
 const unsplash = require('./unsplash')
 const webdav = require('./webdav')
 const zoom = require('./zoom')
-const { getURLBuilder } = require('../helpers/utils')
+const { getURLBuilder, getRedirectPath } = require('../helpers/utils')
 const logger = require('../logger')
 const { getCredentialsResolver } = require('./credentials')
 const Provider = require('./Provider')
@@ -69,7 +68,7 @@ module.exports.getProviderMiddleware = (providers, grantConfig) => {
  * @returns {Record<string, typeof Provider>}
  */
 module.exports.getDefaultProviders = () => {
-  const providers = { dropbox, box, drive: Drive, googlephotos, facebook, onedrive, zoom, instagram, unsplash, webdav }
+  const providers = { dropbox, box, drive: Drive, facebook, onedrive, zoom, instagram, unsplash, webdav }
 
   return providers
 }
@@ -145,7 +144,7 @@ module.exports.addProviderOptions = (companionOptions, grantConfig, getOauthProv
 
       // override grant.js redirect uri with companion's custom redirect url
       const isExternal = !!server.implicitPath
-      const redirectPath = `/${providerName}/redirect`
+      const redirectPath = getRedirectPath(providerName)
       // eslint-disable-next-line no-param-reassign
       grantConfig[oauthProvider].redirect_uri = getURLBuilder(companionOptions)(redirectPath, isExternal)
       if (oauthDomain) {

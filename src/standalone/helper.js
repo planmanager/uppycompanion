@@ -89,11 +89,6 @@ const getConfigFromEnv = () => {
         secret: getSecret('COMPANION_GOOGLE_SECRET'),
         credentialsURL: process.env.COMPANION_GOOGLE_KEYS_ENDPOINT,
       },
-      googlephotos: {
-        key: process.env.COMPANION_GOOGLE_KEY,
-        secret: getSecret('COMPANION_GOOGLE_SECRET'),
-        credentialsURL: process.env.COMPANION_GOOGLE_KEYS_ENDPOINT,
-      },
       dropbox: {
         key: process.env.COMPANION_DROPBOX_KEY,
         secret: getSecret('COMPANION_DROPBOX_SECRET'),
@@ -183,7 +178,10 @@ const getConfigFromEnv = () => {
     // cookieDomain is kind of a hack to support distributed systems. This should be improved but we never got so far.
     cookieDomain: process.env.COMPANION_COOKIE_DOMAIN,
     streamingUpload: process.env.COMPANION_STREAMING_UPLOAD ? process.env.COMPANION_STREAMING_UPLOAD === 'true' : undefined,
+    tusDeferredUploadLength: process.env.COMPANION_TUS_DEFERRED_UPLOAD_LENGTH ? process.env.COMPANION_TUS_DEFERRED_UPLOAD_LENGTH === 'true' : true,
     maxFileSize: process.env.COMPANION_MAX_FILE_SIZE ? parseInt(process.env.COMPANION_MAX_FILE_SIZE, 10) : undefined,
+    maxFilenameLength: process.env.COMPANION_MAX_FILENAME_LENGTH 
+      ? parseInt(process.env.COMPANION_MAX_FILENAME_LENGTH, 10) : 500,
     chunkSize: process.env.COMPANION_CHUNK_SIZE ? parseInt(process.env.COMPANION_CHUNK_SIZE, 10) : undefined,
     clientSocketConnectTimeout: process.env.COMPANION_CLIENT_SOCKET_CONNECT_TIMEOUT
       ? parseInt(process.env.COMPANION_CLIENT_SOCKET_CONNECT_TIMEOUT, 10) : undefined,

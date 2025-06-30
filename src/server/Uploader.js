@@ -10,7 +10,7 @@ const { once } = require('node:events')
 
 const { Upload } = require('@aws-sdk/lib-storage')
 
-const { rfc2047EncodeMetadata, getBucket } = require('./helpers/utils')
+const { rfc2047EncodeMetadata, getBucket, truncateFilename } = require('./helpers/utils')
 
 const got = require('./got')
 
@@ -25,7 +25,6 @@ const redis = require('./redis')
 
 // Need to limit length or we can get
 // "MetadataTooLarge: Your metadata headers exceed the maximum allowed metadata size" in tus / S3
-const MAX_FILENAME_LENGTH = 500
 const DEFAULT_FIELD_NAME = 'files[]'
 const PROTOCOLS = Object.freeze({
   multipart: 'multipart',
@@ -170,9 +169,10 @@ class Uploader {
     this.options.metadata = this.options.metadata || {}
     this.options.fieldname = this.options.fieldname || DEFAULT_FIELD_NAME
     this.size = options.size
-    this.uploadFileName = this.options.metadata.name
-      ? this.options.metadata.name.substring(0, MAX_FILENAME_LENGTH)
-      : this.fileName
+    const { maxFilenameLength } = this.options.companionOptions
+    
+    // Define upload file name
+    this.uploadFileName = truncateFilename(this.options.metadata.name || this.fileName, maxFilenameLength)
 
     this.storage = options.storage
 
@@ -393,7 +393,6 @@ class Uploader {
     logger.debug('waiting for socket connection', 'uploader.socket.wait', this.shortToken)
 
     const eventName = `connection:${this.token}`
-    // eslint-disable-next-line compat/compat
     await once(emitter(), eventName, timeout && { signal: AbortSignal.timeout(timeout) })
 
     logger.debug('socket connection received', 'uploader.socket.wait', this.shortToken)
@@ -504,14 +503,11 @@ class Uploader {
     // https://github.com/tus/tus-js-client/blob/4479b78032937ac14da9b0542e489ac6fe7e0bc7/lib/node/fileReader.js#L50
     const chunkSize = this.options.chunkSize || (isFileStream ? Infinity : 50e6)
 
-    return new Promise((resolve, reject) => {
-
+    const tusRet = await new Promise((resolve, reject) => {
       const tusOptions = {
         endpoint: this.options.endpoint,
         uploadUrl: this.options.uploadUrl,
-        uploadLengthDeferred: !isFileStream,
         retryDelays: [0, 1000, 3000, 5000],
-        uploadSize: isFileStream ? this.size : undefined,
         chunkSize,
         headers: headerSanitize(this.options.headers),
         addRequestId: true,
@@ -553,10 +549,28 @@ class Uploader {
         },
       }
 
+      if (this.options.companionOptions.tusDeferredUploadLength && !isFileStream) {
+        tusOptions.uploadLengthDeferred = true
+      } else {
+        if (!this.size) {
+          reject(new Error('tusDeferredUploadLength needs to be enabled if no file size is provided by the provider'))
+        }
+        tusOptions.uploadLengthDeferred = false
+        tusOptions.uploadSize = this.size
+      }
+
       this.tus = new tus.Upload(stream, tusOptions)
 
       this.tus.start()
     })
+
+    // @ts-ignore
+    if (this.size != null && this.tus._size !== this.size) {
+      // @ts-ignore
+      logger.warn(`Tus uploaded size ${this.tus._size} different from reported URL size ${this.size}`, 'upload.tus.mismatch.error')
+    }
+
+    return tusRet;
   }
 
   async #uploadMultipart(stream) {

@@ -1,5 +1,59 @@
 # @uppy/companion
 
+## 5.8.0
+
+Released: 2025-06-02
+Included in: Uppy v4.17.0
+
+- @uppy/companion: add max filename length env var (Freeman / #5763)
+- @uppy/companion: fix cookie maxAge to milliseconds  (zolotarov@brights.io / #5746)
+- @uppy/companion: improve Zoom folder structure (Merlijn Vos / #5739)
+
+## 5.7.0
+
+Released: 2025-05-18
+Included in: Uppy v4.16.0
+
+- @uppy/companion: implement credentials param `transloadit_gateway` (Mikael Finstad / #5725)
+- @uppy/companion: Fix AES key wear-out (Florian Maury / #5724)
+
+## 5.6.0
+
+Released: 2025-04-08
+Included in: Uppy v4.14.0
+
+- @uppy/companion: implement dropbox business teams (Mikael Finstad / #5708)
+
+## 5.5.2
+
+Released: 2025-02-25
+Included in: Uppy v4.13.3
+
+- @uppy/companion: log when tus uploaded size differs (Mikael Finstad / #5647)
+- @uppy/companion: remove redundant HEAD request for file size  (Mikael Finstad / #5648)
+
+## 5.5.1
+
+Released: 2025-01-22
+Included in: Uppy v4.13.1
+
+- @uppy/companion: unify http error responses (Mikael Finstad / #5595)
+
+## 5.5.0
+
+Released: 2025-01-15
+Included in: Uppy v4.13.0
+
+- @uppy/companion: fix forcePathStyle boolean conversion (Mikael Finstad / #5308)
+- @uppy/companion: add COMPANION_TUS_DEFERRED_UPLOAD_LENGTH (Dominik Schmidt / #5561)
+
+## 5.4.1
+
+Released: 2025-01-08
+Included in: Uppy v4.12.1
+
+- @uppy/companion: upgrade express & express-session (Merlijn Vos / #5582)
+
 ## 5.4.0
 
 Released: 2025-01-06
