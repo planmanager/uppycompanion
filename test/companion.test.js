@@ -1,43 +1,40 @@
-const nock = require('nock')
-const request = require('supertest')
+import nock from 'nock'
+import request from 'supertest'
+import { afterAll, describe, expect, it, test, vi } from 'vitest'
+import packageJson from '../package.json' with { type: 'json' }
+import * as tokenService from '../src/server/helpers/jwt.js'
+import * as defaults from './fixtures/constants.js'
+import { nockGoogleDownloadFile } from './fixtures/drive.js'
+import mockOauthState from './mockoauthstate.js'
+import { getServer } from './mockserver.js'
 
-const mockOauthState = require('../mockoauthstate')
-const { version } = require('../../package.json')
-const { nockGoogleDownloadFile } = require('../fixtures/drive')
-const defaults = require('../fixtures/constants')
-
-jest.mock('tus-js-client')
-jest.mock('../../src/server/helpers/oauth-state', () => ({
-  ...jest.requireActual('../../src/server/helpers/oauth-state'),
-  ...mockOauthState(),
-}))
+vi.mock('express-prom-bundle')
+vi.mock('tus-js-client')
+mockOauthState()
 
 const fakeLocalhost = 'localhost.com'
 
-jest.mock('node:dns', () => {
-  const actual = jest.requireActual('node:dns')
-  return {
-    ...actual,
+vi.mock('node:dns', () => ({
+  default: {
     lookup: (hostname, options, callback) => {
       if (fakeLocalhost === hostname || hostname === 'localhost') {
         return callback(null, '127.0.0.1', 4)
       }
       return callback(new Error(`Unexpected call to hostname ${hostname}`))
     },
-  }
-})
+  },
+}))
 
-const tokenService = require('../../src/server/helpers/jwt')
-const { getServer } = require('../mockserver')
+const getServerWithEnv = async () =>
+  getServer({ COMPANION_CLIENT_SOCKET_CONNECT_TIMEOUT: '0' })
 
-// todo don't share server between tests. rewrite to not use env variables
-const authServer = getServer({ COMPANION_CLIENT_SOCKET_CONNECT_TIMEOUT: '0' })
+const secret = 'secret'
 const authData = {
   dropbox: { accessToken: 'token value' },
   box: { accessToken: 'token value' },
   drive: { accessToken: 'token value' },
 }
-const token = tokenService.generateEncryptedAuthToken(authData, process.env.COMPANION_SECRET)
+const token = tokenService.generateEncryptedAuthToken(authData, secret)
 const OAUTH_STATE = 'some-cool-nice-encrytpion'
 
 afterAll(() => {
@@ -46,23 +43,31 @@ afterAll(() => {
 })
 
 describe('validate upload data', () => {
-  test('access token expired or invalid when starting provider download', () => {
+  test('access token expired or invalid when starting provider download', async () => {
     const meta = {
       size: null,
       mimeType: 'video/mp4',
       id: defaults.ITEM_ID,
     }
-    nock('https://www.googleapis.com').get(`/drive/v3/files/${defaults.ITEM_ID}`).query(() => true).reply(200, meta)
+    nock('https://www.googleapis.com')
+      .get(`/drive/v3/files/${defaults.ITEM_ID}`)
+      .query(() => true)
+      .reply(200, meta)
 
-    nock('https://www.googleapis.com').get(`/drive/v3/files/${defaults.ITEM_ID}?alt=media&supportsAllDrives=true`).reply(401, {
-      "error": {
-        "code": 401,
-        "message": "Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.",
-        "status": "UNAUTHENTICATED"
-      }
-    })
-  
-    return request(authServer)
+    nock('https://www.googleapis.com')
+      .get(
+        `/drive/v3/files/${defaults.ITEM_ID}?alt=media&supportsAllDrives=true`,
+      )
+      .reply(401, {
+        error: {
+          code: 401,
+          message:
+            'Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.',
+          status: 'UNAUTHENTICATED',
+        },
+      })
+
+    return request(await getServerWithEnv())
       .post('/drive/get/DUMMY-FILE-ID')
       .set('uppy-auth-token', token)
       .set('Content-Type', 'application/json')
@@ -72,13 +77,17 @@ describe('validate upload data', () => {
         httpMethod: 'POST',
       })
       .expect(401)
-      .then((res) => expect(res.body.message).toBe('HTTP 401: invalid access token detected by Provider'))
+      .then((res) =>
+        expect(res.body.message).toBe(
+          'HTTP 401: invalid access token detected by Provider',
+        ),
+      )
   })
 
-  test('invalid upload protocol gets rejected', () => {
+  test('invalid upload protocol gets rejected', async () => {
     nockGoogleDownloadFile()
 
-    return request(authServer)
+    return request(await getServerWithEnv())
       .post('/drive/get/DUMMY-FILE-ID')
       .set('uppy-auth-token', token)
       .set('Content-Type', 'application/json')
@@ -87,13 +96,15 @@ describe('validate upload data', () => {
         protocol: 'tusInvalid',
       })
       .expect(400)
-      .then((res) => expect(res.body.message).toBe('unsupported protocol specified'))
+      .then((res) =>
+        expect(res.body.message).toBe('unsupported protocol specified'),
+      )
   })
 
-  test('invalid upload fieldname gets rejected', () => {
+  test('invalid upload fieldname gets rejected', async () => {
     nockGoogleDownloadFile()
 
-    return request(authServer)
+    return request(await getServerWithEnv())
       .post('/drive/get/DUMMY-FILE-ID')
       .set('uppy-auth-token', token)
       .set('Content-Type', 'application/json')
@@ -103,13 +114,15 @@ describe('validate upload data', () => {
         fieldname: 390,
       })
       .expect(400)
-      .then((res) => expect(res.body.message).toBe('fieldname must be a string'))
+      .then((res) =>
+        expect(res.body.message).toBe('fieldname must be a string'),
+      )
   })
 
-  test('invalid upload metadata gets rejected', () => {
+  test('invalid upload metadata gets rejected', async () => {
     nockGoogleDownloadFile()
 
-    return request(authServer)
+    return request(await getServerWithEnv())
       .post('/drive/get/DUMMY-FILE-ID')
       .set('uppy-auth-token', token)
       .set('Content-Type', 'application/json')
@@ -119,13 +132,15 @@ describe('validate upload data', () => {
         metadata: 'I am a string instead of object',
       })
       .expect(400)
-      .then((res) => expect(res.body.message).toBe('metadata must be an object'))
+      .then((res) =>
+        expect(res.body.message).toBe('metadata must be an object'),
+      )
   })
 
-  test('invalid upload headers get rejected', () => {
+  test('invalid upload headers get rejected', async () => {
     nockGoogleDownloadFile()
 
-    return request(authServer)
+    return request(await getServerWithEnv())
       .post('/drive/get/DUMMY-FILE-ID')
       .set('uppy-auth-token', token)
       .set('Content-Type', 'application/json')
@@ -138,10 +153,10 @@ describe('validate upload data', () => {
       .then((res) => expect(res.body.message).toBe('headers must be an object'))
   })
 
-  test('invalid upload HTTP Method gets rejected', () => {
+  test('invalid upload HTTP Method gets rejected', async () => {
     nockGoogleDownloadFile()
 
-    return request(authServer)
+    return request(await getServerWithEnv())
       .post('/drive/get/DUMMY-FILE-ID')
       .set('uppy-auth-token', token)
       .set('Content-Type', 'application/json')
@@ -151,13 +166,15 @@ describe('validate upload data', () => {
         httpMethod: 'DELETE',
       })
       .expect(400)
-      .then((res) => expect(res.body.message).toBe('unsupported HTTP METHOD specified'))
+      .then((res) =>
+        expect(res.body.message).toBe('unsupported HTTP METHOD specified'),
+      )
   })
 
-  test('valid upload data is allowed - tus', () => {
+  test('valid upload data is allowed - tus', async () => {
     nockGoogleDownloadFile()
 
-    return request(authServer)
+    return request(await getServerWithEnv())
       .post('/drive/get/DUMMY-FILE-ID')
       .set('uppy-auth-token', token)
       .set('Content-Type', 'application/json')
@@ -176,10 +193,10 @@ describe('validate upload data', () => {
       .expect(200)
   })
 
-  test('valid upload data is allowed - s3-multipart', () => {
+  test('valid upload data is allowed - s3-multipart', async () => {
     nockGoogleDownloadFile()
 
-    return request(authServer)
+    return request(await getServerWithEnv())
       .post('/drive/get/DUMMY-FILE-ID')
       .set('uppy-auth-token', token)
       .set('Content-Type', 'application/json')
@@ -199,8 +216,8 @@ describe('validate upload data', () => {
   })
 })
 
-describe('handle main oauth redirect', () => {
-  const serverWithMainOauth = getServer({
+describe('handle main oauth redirect', async () => {
+  const serverWithMainOauth = await getServer({
     COMPANION_OAUTH_DOMAIN: 'localhost:3040',
   })
   test('redirect to a valid uppy instance', () => {
@@ -208,7 +225,10 @@ describe('handle main oauth redirect', () => {
       .get(`/dropbox/redirect?state=${OAUTH_STATE}`)
       .set('uppy-auth-token', token)
       .expect(302)
-      .expect('Location', `http://localhost:3020/connect/dropbox/callback?state=${OAUTH_STATE}`)
+      .expect(
+        'Location',
+        `http://localhost:3020/connect/dropbox/callback?state=${OAUTH_STATE}`,
+      )
   })
 
   test('do not redirect to invalid uppy instances', () => {
@@ -220,42 +240,45 @@ describe('handle main oauth redirect', () => {
   })
 })
 
-it('periodically pings', (done) => {
-  nock('http://localhost').post('/ping', (body) => (
-    body.some === 'value'
-    && body.version === version
-    && typeof body.processId === 'string'
-  )).reply(200, () => done())
-
-  getServer({
-    COMPANION_PERIODIC_PING_URLS: 'http://localhost/ping',
-    COMPANION_PERIODIC_PING_STATIC_JSON_PAYLOAD: '{"some": "value"}',
-    COMPANION_PERIODIC_PING_INTERVAL: '10',
-    COMPANION_PERIODIC_PING_COUNT: '1',
-  })
+it('periodically pings', async () => {
+  await Promise.all([
+    getServer({
+      COMPANION_PERIODIC_PING_URLS: 'http://localhost/ping',
+      COMPANION_PERIODIC_PING_STATIC_JSON_PAYLOAD: '{"some": "value"}',
+      COMPANION_PERIODIC_PING_INTERVAL: '10',
+      COMPANION_PERIODIC_PING_COUNT: '1',
+    }),
+    new Promise((resolve) => {
+      nock('http://localhost')
+        .post(
+          '/ping',
+          (body) =>
+            body.some === 'value' &&
+            body.version === packageJson.version &&
+            typeof body.processId === 'string',
+        )
+        .reply(200, () => resolve())
+    }),
+  ])
 }, 3000)
 
-async function runUrlMetaTest (url) {
-  const server = getServer()
+async function runUrlMetaTest(url) {
+  const server = await getServer()
 
-  return request(server)
-    .post('/url/meta')
-    .send({ url })
+  return request(server).post('/url/meta').send({ url })
 }
 
-async function runUrlGetTest (url) {
-  const server = getServer()
+async function runUrlGetTest(url) {
+  const server = await getServer()
 
-  return request(server)
-    .post('/url/get')
-    .send({
-      fileId: url,
-      metadata: {},
-      endpoint: 'http://url.myendpoint.com/files',
-      protocol: 'tus',
-      size: null,
-      url,
-    })
+  return request(server).post('/url/get').send({
+    fileId: url,
+    metadata: {},
+    endpoint: 'http://url.myendpoint.com/files',
+    protocol: 'tus',
+    size: null,
+    url,
+  })
 }
 
 it('respects allowLocalUrls, localhost', async () => {
