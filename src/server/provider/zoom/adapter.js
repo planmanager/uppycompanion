@@ -1,4 +1,4 @@
-const moment = require('moment-timezone')
+import moment from 'moment-timezone'
 
 const MIMETYPES = {
   MP4: 'video/mp4',
@@ -36,12 +36,15 @@ const getIsFolder = (item) => {
 }
 
 const getItemName = (item, userResponse) => {
-  const start = moment.tz(item.start_time || item.recording_start, userResponse.timezone || 'UTC')
+  const start = moment
+    .tz(item.start_time || item.recording_start, userResponse.timezone || 'UTC')
     .format('YYYY-MM-DD, HH:mm')
 
   if (item.file_type) {
     const ext = EXT[item.file_type] ? `.${EXT[item.file_type]}` : ''
-    const itemType = item.recording_type ? ` - ${item.recording_type.split('_').join(' ')}` : ''
+    const itemType = item.recording_type
+      ? ` - ${item.recording_type.split('_').join(' ')}`
+      : ''
     return `${item.topic}${itemType} (${start})${ext}`
   }
 
@@ -65,7 +68,8 @@ const getMimeType = (item) => {
 const getId = (item) => {
   if (item.file_type && item.file_type === 'CC') {
     return `${encodeURIComponent(item.meeting_id)}__CC__${encodeURIComponent(item.recording_start)}`
-  } if (item.file_type) {
+  }
+  if (item.file_type) {
     return `${encodeURIComponent(item.meeting_id)}__${encodeURIComponent(item.id)}`
   }
   return `${encodeURIComponent(item.uuid)}`
@@ -74,7 +78,8 @@ const getId = (item) => {
 const getRequestPath = (item) => {
   if (item.file_type && item.file_type === 'CC') {
     return `${encodeURIComponent(item.meeting_id)}?recordingId=CC&recordingStart=${encodeURIComponent(item.recording_start)}`
-  } if (item.file_type) {
+  }
+  if (item.file_type) {
     return `${encodeURIComponent(item.meeting_id)}?recordingId=${encodeURIComponent(item.id)}`
   }
   // Zoom meeting ids are reused so we need to use the UUID. Also, these UUIDs can contain `/` characters which require
@@ -93,7 +98,8 @@ const getSize = (item) => {
   if (item.file_type && item.file_type === 'CC') {
     const maxExportFileSize = 1024 * 1024
     return maxExportFileSize
-  } if (item.file_type) {
+  }
+  if (item.file_type) {
     return item.file_size
   }
   return item.total_size
@@ -103,7 +109,7 @@ const getItemTopic = (item) => {
   return item.topic
 }
 
-exports.adaptData = (userResponse, results) => {
+const adaptData = (userResponse, results) => {
   if (!results) {
     return { items: [] }
   }
@@ -116,18 +122,29 @@ exports.adaptData = (userResponse, results) => {
 
   let itemsToProcess = []
   if (results.meetings) {
-    itemsToProcess = results.meetings
-      .filter(meeting =>
-        meeting.recording_files &&
-        meeting.recording_files.some(file => !file.deleted_time && file.status === 'completed' && file.download_url)
-      )
+    itemsToProcess = results.meetings.filter((meeting) =>
+      meeting.recording_files?.some(
+        (file) =>
+          !file.deleted_time &&
+          file.status === 'completed' &&
+          file.download_url,
+      ),
+    )
   } else if (results.recording_files) {
     itemsToProcess = results.recording_files
-      .map(item => { return { ...item, topic: results.topic } })
-      .filter(file => file.file_type !== 'TIMELINE' && !file.deleted_time && file.status === 'completed' && file.download_url)
+      .map((item) => {
+        return { ...item, topic: results.topic }
+      })
+      .filter(
+        (file) =>
+          file.file_type !== 'TIMELINE' &&
+          !file.deleted_time &&
+          file.status === 'completed' &&
+          file.download_url,
+      )
   }
 
-  itemsToProcess.forEach(item => {
+  itemsToProcess.forEach((item) => {
     data.items.push({
       isFolder: getIsFolder(item),
       icon: getIcon(item),
@@ -145,3 +162,5 @@ exports.adaptData = (userResponse, results) => {
   })
   return data
 }
+
+export default adaptData
