@@ -1,5 +1,23 @@
 # @uppy/companion
 
+## 6.2.1
+
+### Patch Changes
+
+- 4817585: added icon to webdav provider, add css to truncate large file names
+
+## 6.2.0
+
+### Minor Changes
+
+- 0c8dd19: New Companion option `uploadHeaders` which can be used to include a static set of headers with every request sent to all upload destinations.
+
+## 6.1.1
+
+### Patch Changes
+
+- 6a60ee5: Reject request early instead of crashing on missing `filename` for /s3/multipart and /s3/params endpoints
+
 ## 6.1.0
 
 ### Minor Changes

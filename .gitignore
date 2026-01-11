@@ -38,6 +38,5 @@ test/output/*
 infra/kube/companion/uppy-env.yaml
 scripts/.tl-deploy-hosts-danger.txt
 
-
 .idea
 node_modules
