@@ -1,13 +1,12 @@
 import { respondWithError } from '../provider/error.js'
 
-export default async function list({ query, params, companion }, res, next) {
+export default async function search({ query, companion }, res, next) {
   const { providerUserSession } = companion
 
   try {
-    const data = await companion.provider.list({
+    const data = await companion.provider.search({
       companion,
       providerUserSession,
-      directory: params.id,
       query,
     })
     res.json(data)
